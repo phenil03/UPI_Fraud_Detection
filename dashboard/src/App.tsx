@@ -11,7 +11,7 @@ import {
 import Dashboard from './pages/Dashboard'
 import Transactions from './pages/Transactions'
 import Analytics from './pages/Analytics'
-import Models from './pages/Models'
+import FraudPatterns from './pages/FraudPatterns'
 import Login from './pages/Login'
 
 /* ------------------------------------------------------------------ */
@@ -29,15 +29,51 @@ function getSession() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Sidebar layout                                                     */
+/*  Icons (inline SVGs for crisp rendering)                            */
+/* ------------------------------------------------------------------ */
+
+const icons = {
+  dashboard: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" />
+    </svg>
+  ),
+  transactions: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </svg>
+  ),
+  analytics: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
+    </svg>
+  ),
+  fraud: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  ),
+  logout: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  ),
+}
+
+/* ------------------------------------------------------------------ */
+/*  Navigation items                                                    */
 /* ------------------------------------------------------------------ */
 
 const navItems = [
-  { to: '/', label: 'Dashboard', icon: '📊' },
-  { to: '/transactions', label: 'Transactions', icon: '💳' },
-  { to: '/analytics', label: 'Analytics', icon: '📈' },
-  { to: '/models', label: 'Models', icon: '🤖' },
+  { to: '/', label: 'Overview', icon: icons.dashboard },
+  { to: '/transactions', label: 'Transactions', icon: icons.transactions },
+  { to: '/analytics', label: 'Analytics', icon: icons.analytics },
+  { to: '/fraud-patterns', label: 'Fraud Patterns', icon: icons.fraud },
 ]
+
+/* ------------------------------------------------------------------ */
+/*  Sidebar layout                                                     */
+/* ------------------------------------------------------------------ */
 
 function SidebarLayout() {
   const session = getSession()
@@ -48,33 +84,42 @@ function SidebarLayout() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--bg-primary)' }}>
+      {/* Background decorative orbs */}
+      <div className="bg-orb bg-orb-1" />
+      <div className="bg-orb bg-orb-2" />
+
       {/* Sidebar */}
-      <aside className="flex w-64 flex-col bg-sidebar text-white">
+      <aside className="sidebar relative z-10 flex w-64 flex-col">
         {/* Brand */}
-        <div className="flex h-16 items-center gap-3 px-6 border-b border-white/10">
-          <span className="text-2xl">🛡️</span>
-          <span className="text-lg font-semibold tracking-tight">
-            UPI Fraud Guard
-          </span>
+        <div className="sidebar-brand flex h-16 items-center gap-3 px-5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: 'var(--gradient-primary)' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
+            </svg>
+          </div>
+          <div>
+            <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+              UPI Analytics
+            </span>
+            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+              Transaction Intelligence
+            </p>
+          </div>
         </div>
 
-        {/* Nav links */}
-        <nav className="mt-4 flex-1 space-y-1 px-3">
+        {/* Navigation */}
+        <nav className="mt-3 flex-1 space-y-1 px-3">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.to === '/'}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-white/15 text-white'
-                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                }`
+                `nav-link ${isActive ? 'active' : ''}`
               }
             >
-              <span className="text-base">{item.icon}</span>
+              <span className="nav-icon">{item.icon}</span>
               {item.label}
             </NavLink>
           ))}
@@ -82,29 +127,29 @@ function SidebarLayout() {
 
         {/* User info */}
         {session && (
-          <div className="mx-3 mb-2 rounded-lg bg-white/5 px-4 py-2">
-            <p className="text-xs text-slate-400">Signed in as</p>
-            <p className="truncate text-sm font-medium text-white">
+          <div className="mx-3 mb-2 rounded-xl p-3" style={{ background: 'rgba(99, 102, 241, 0.06)', border: '1px solid var(--border)' }}>
+            <p className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>Signed in as</p>
+            <p className="truncate text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
               {session.name || session.email}
             </p>
           </div>
         )}
 
         {/* Logout */}
-        <div className="border-t border-white/10 p-4">
+        <div className="p-3" style={{ borderTop: '1px solid var(--border)' }}>
           <button
             id="logout-button"
             onClick={handleLogout}
-            className="flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
+            className="nav-link w-full"
           >
-            <span className="text-base">🚪</span>
+            <span className="nav-icon">{icons.logout}</span>
             Sign out
           </button>
         </div>
       </aside>
 
-      {/* Main content area */}
-      <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
+      {/* Main content */}
+      <main className="relative z-10 flex-1 overflow-y-auto p-6" style={{ background: 'var(--bg-primary)' }}>
         <Outlet />
       </main>
     </div>
@@ -145,7 +190,7 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/transactions" element={<Transactions />} />
           <Route path="/analytics" element={<Analytics />} />
-          <Route path="/models" element={<Models />} />
+          <Route path="/fraud-patterns" element={<FraudPatterns />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

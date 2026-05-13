@@ -1,15 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar,
 } from 'recharts'
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
@@ -18,323 +10,342 @@ const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-interface Transaction {
-  id: number
-  txn_id: string
-  sender_upi: string
-  receiver_upi: string
-  amount: number
-  risk_score: number
-  decision: 'ALLOW' | 'CHALLENGE' | 'BLOCK'
-  created_at: string
+interface OverviewData {
+  total_transactions: number
+  fraud_count: number
+  fraud_rate: number
+  total_volume: number
+  avg_amount: number
+  max_amount: number
+  fraud_volume: number
+  unique_senders: number
+  unique_receivers: number
+  type_breakdown: { type: string; count: number; volume: number; fraud_count: number }[]
+  daily_trend: { date: string; count: number; volume: number; fraud_count: number }[]
 }
 
 /* ------------------------------------------------------------------ */
-/*  Realistic mock data (generated once per page load)                 */
+/*  Formatters                                                         */
 /* ------------------------------------------------------------------ */
 
-const UPI_IDS = [
-  'rahul.sharma@ybl', 'priya.patel@oksbi', 'amit.kumar@paytm',
-  'sneha.verma@ibl', 'vijay.singh@axl', 'deepak.gupta@icici',
-  'anita.joshi@ybl', 'suresh.reddy@sbi', 'meena.das@hdfc',
-  'rajesh.nair@paytm', 'pooja.mehta@oksbi', 'kiran.rao@axl',
-  'manoj.tiwari@ybl', 'neha.agarwal@ibl', 'arjun.mishra@sbi',
-]
-
-function generateMockTransactions(): Transaction[] {
-  const decisions: ('ALLOW' | 'CHALLENGE' | 'BLOCK')[] = ['ALLOW', 'ALLOW', 'ALLOW', 'ALLOW', 'ALLOW', 'ALLOW', 'CHALLENGE', 'CHALLENGE', 'BLOCK', 'ALLOW']
-  const now = Date.now()
-
-  return Array.from({ length: 20 }, (_, i) => {
-    const decision = decisions[i % decisions.length]
-    const amount = decision === 'BLOCK'
-      ? Math.floor(Math.random() * 45000 + 15000) // Fraud = high amounts
-      : decision === 'CHALLENGE'
-        ? Math.floor(Math.random() * 10000 + 5000) // Suspicious = medium
-        : Math.floor(Math.random() * 5000 + 100) // Normal = low
-
-    return {
-      id: i + 1,
-      txn_id: `TXN${String(now - i * 60000).slice(-10)}`,
-      sender_upi: UPI_IDS[Math.floor(Math.random() * UPI_IDS.length)],
-      receiver_upi: UPI_IDS[Math.floor(Math.random() * UPI_IDS.length)],
-      amount,
-      risk_score: decision === 'BLOCK' ? +(Math.random() * 0.3 + 0.7).toFixed(3)
-        : decision === 'CHALLENGE' ? +(Math.random() * 0.3 + 0.4).toFixed(3)
-          : +(Math.random() * 0.3 + 0.05).toFixed(3),
-      decision,
-      created_at: new Date(now - i * 120000).toISOString(),
-    }
-  })
+function formatINR(n: number): string {
+  if (n >= 10000000) return `₹${(n / 10000000).toFixed(1)}Cr`
+  if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`
+  if (n >= 1000) return `₹${(n / 1000).toFixed(1)}K`
+  return `₹${n.toFixed(0)}`
 }
 
-const mockTransactions = generateMockTransactions()
-
-const fraudRateData = Array.from({ length: 24 }, (_, i) => ({
-  hour: `${String(i).padStart(2, '0')}:00`,
-  rate: +(Math.random() * 4 + (i >= 22 || i <= 4 ? 3 : 1)).toFixed(2),
-}))
+function formatNumber(n: number): string {
+  return n.toLocaleString('en-IN')
+}
 
 /* ------------------------------------------------------------------ */
-/*  Components                                                         */
+/*  Stat Card                                                          */
 /* ------------------------------------------------------------------ */
 
 function StatCard({
-  label,
-  value,
-  sub,
-  accent,
-  icon,
+  label, value, sub, accent, icon, delay,
 }: {
-  label: string
-  value: string | number
-  sub?: string
-  accent: string
-  icon: string
+  label: string; value: string | number; sub?: string
+  accent: string; icon: React.ReactNode; delay: number
 }) {
   return (
-    <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:-translate-y-0.5">
+    <div
+      className={`glass-card stat-card ${accent} p-5 animate-fade-in-up`}
+      style={{ animationDelay: `${delay * 0.08}s` }}
+    >
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
+        <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
           {label}
         </p>
-        <span className="text-xl">{icon}</span>
+        <div className="stat-icon">{icon}</div>
       </div>
-      <p className={`mt-2 text-3xl font-bold ${accent}`}>{value}</p>
-      {sub && <p className="mt-1 text-xs text-gray-400">{sub}</p>}
-    </div>
-  )
-}
-
-function Badge({ decision }: { decision: string }) {
-  const map: Record<string, string> = {
-    ALLOW: 'bg-emerald-100 text-emerald-700',
-    CHALLENGE: 'bg-amber-100 text-amber-700',
-    BLOCK: 'bg-red-100 text-red-700',
-  }
-  return (
-    <span
-      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-        map[decision] ?? 'bg-gray-100 text-gray-700'
-      }`}
-    >
-      {decision}
-    </span>
-  )
-}
-
-function RiskBar({ score }: { score: number }) {
-  const pct = Math.round(score * 100)
-  const color = pct > 70 ? 'bg-red-500' : pct > 40 ? 'bg-amber-500' : 'bg-emerald-500'
-  return (
-    <div className="flex items-center gap-2">
-      <div className="h-2 w-20 rounded-full bg-gray-100">
-        <div className={`h-2 rounded-full ${color}`} style={{ width: `${pct}%` }} />
-      </div>
-      <span className="text-xs text-gray-500">{pct}%</span>
+      <p className="mt-3 text-3xl font-extrabold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+        {value}
+      </p>
+      {sub && (
+        <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>{sub}</p>
+      )}
     </div>
   )
 }
 
 /* ------------------------------------------------------------------ */
-/*  Dashboard page                                                     */
+/*  Custom Tooltip                                                     */
 /* ------------------------------------------------------------------ */
 
-const COLORS = ['#10b981', '#f59e0b', '#ef4444']
+function CustomTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="glass-card p-3" style={{ minWidth: 140 }}>
+      <p className="text-xs font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{label}</p>
+      {payload.map((p: any, i: number) => (
+        <p key={i} className="text-xs" style={{ color: p.color }}>
+          {p.name}: <span className="font-semibold">{typeof p.value === 'number' && p.value > 100 ? formatINR(p.value) : p.value}</span>
+        </p>
+      ))}
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Dashboard Page                                                     */
+/* ------------------------------------------------------------------ */
+
+const PIE_COLORS = ['#6366f1', '#14b8a6', '#f43f5e', '#f59e0b', '#0ea5e9']
 
 export default function Dashboard() {
-  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [data, setData] = useState<OverviewData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetchTransactions = async () => {
-      try {
-        const res = await fetch(`${API}/transactions`)
-        if (res.ok) {
-          const data: Transaction[] = await res.json()
-          setTransactions(data.slice(0, 20))
-          setLoading(false)
-          return
-        }
-      } catch {
-        // Backend not running — use mock data
-      }
-      setTransactions(mockTransactions)
-      setLoading(false)
-    }
-    fetchTransactions()
+    fetch(`${API}/overview`)
+      .then((r) => r.json())
+      .then((d) => { setData(d); setLoading(false) })
+      .catch(() => setLoading(false))
   }, [])
 
-  const totalTxns = transactions.length
-  const fraudCount = transactions.filter((t) => t.decision === 'BLOCK').length
-  const challengeCount = transactions.filter((t) => t.decision === 'CHALLENGE').length
-  const allowCount = totalTxns - fraudCount - challengeCount
-  const avgRisk = totalTxns > 0
-    ? (transactions.reduce((s, t) => s + t.risk_score, 0) / totalTxns * 100).toFixed(1)
-    : '0'
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="spinner" />
+      </div>
+    )
+  }
 
-  const pieData = [
-    { name: 'Allowed', value: allowCount },
-    { name: 'Challenged', value: challengeCount },
-    { name: 'Blocked', value: fraudCount },
-  ]
+  if (!data) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <p style={{ color: 'var(--text-muted)' }}>Failed to load data. Is the backend running?</p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
-      {/* Page heading */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-sm text-gray-500">Real-time UPI fraud monitoring overview</p>
+      {/* Header */}
+      <div className="animate-fade-in-up">
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+          Dashboard Overview
+        </h1>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+          UPI transaction analytics powered by PaySim dataset — {formatNumber(data.total_transactions)} transactions analyzed
+        </p>
       </div>
 
-      {/* Stat cards */}
+      {/* KPI Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Total Transactions"
-          value={totalTxns}
-          sub="processed today"
-          accent="text-gray-900"
-          icon="💳"
+          value={formatNumber(data.total_transactions)}
+          sub="PaySim dataset sample"
+          accent="accent-purple"
+          delay={1}
+          icon={
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            </svg>
+          }
         />
         <StatCard
-          label="Fraud Blocked"
-          value={fraudCount}
-          sub={`${totalTxns > 0 ? ((fraudCount / totalTxns) * 100).toFixed(1) : 0}% of total`}
-          accent="text-red-600"
-          icon="🚫"
+          label="Total Volume"
+          value={formatINR(data.total_volume)}
+          sub={`Avg: ${formatINR(data.avg_amount)} per txn`}
+          accent="accent-teal"
+          delay={2}
+          icon={
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#14b8a6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" />
+            </svg>
+          }
         />
         <StatCard
-          label="Challenged"
-          value={challengeCount}
-          sub="needs review"
-          accent="text-amber-600"
-          icon="⚠️"
+          label="Fraud Detected"
+          value={formatNumber(data.fraud_count)}
+          sub={`${data.fraud_rate}% fraud rate`}
+          accent="accent-rose"
+          delay={3}
+          icon={
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+          }
         />
         <StatCard
-          label="Avg Risk Score"
-          value={`${avgRisk}%`}
-          sub="across all transactions"
-          accent="text-indigo-600"
-          icon="📊"
+          label="Unique Accounts"
+          value={formatNumber(data.unique_senders + data.unique_receivers)}
+          sub={`${data.unique_senders} senders · ${data.unique_receivers} receivers`}
+          accent="accent-amber"
+          delay={4}
+          icon={
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          }
         />
       </div>
 
-      {/* Charts row */}
+      {/* Charts Row 1 */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Fraud rate chart */}
-        <div className="col-span-2 rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
-          <h2 className="mb-4 text-sm font-semibold text-gray-700">
-            Fraud Rate — Last 24 Hours
-          </h2>
+        {/* Daily Trend — Area Chart */}
+        <div className="glass-card chart-container col-span-2 animate-fade-in-up delay-5">
+          <h3>Transaction Trend</h3>
+          <p>Daily transaction count & fraud cases over the analysis period</p>
           <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={fraudRateData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="hour" tick={{ fontSize: 11 }} stroke="#94a3b8" />
-              <YAxis
-                tick={{ fontSize: 11 }}
-                stroke="#94a3b8"
-                tickFormatter={(v: number) => `${v}%`}
+            <AreaChart data={data.daily_trend}>
+              <defs>
+                <linearGradient id="gradTotal" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#6366f1" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="gradFraud" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f43f5e" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="#f43f5e" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.08)" />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 10, fill: '#64748b' }}
+                tickFormatter={(v) => v?.slice(5) || ''}
+                stroke="transparent"
               />
-              <Tooltip
-                contentStyle={{
-                  borderRadius: 8,
-                  border: 'none',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                }}
-                formatter={(v: number) => [`${v}%`, 'Fraud Rate']}
-              />
-              <Line
-                type="monotone"
-                dataKey="rate"
-                stroke="#6366f1"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 5 }}
-              />
-            </LineChart>
+              <YAxis tick={{ fontSize: 10, fill: '#64748b' }} stroke="transparent" />
+              <Tooltip content={<CustomTooltip />} />
+              <Area type="monotone" dataKey="count" name="Total" stroke="#6366f1" fill="url(#gradTotal)" strokeWidth={2} />
+              <Area type="monotone" dataKey="fraud_count" name="Fraud" stroke="#f43f5e" fill="url(#gradFraud)" strokeWidth={2} />
+            </AreaChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Decision pie chart */}
-        <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
-          <h2 className="mb-4 text-sm font-semibold text-gray-700">
-            Decision Breakdown
-          </h2>
+        {/* Type Breakdown — Pie Chart */}
+        <div className="glass-card chart-container animate-fade-in-up delay-6">
+          <h3>Transaction Types</h3>
+          <p>Distribution by transaction category</p>
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
               <Pie
-                data={pieData}
+                data={data.type_breakdown}
+                dataKey="count"
+                nameKey="type"
                 cx="50%"
                 cy="50%"
-                innerRadius={50}
+                innerRadius={45}
                 outerRadius={80}
                 paddingAngle={3}
-                dataKey="value"
+                strokeWidth={0}
               >
-                {pieData.map((_, idx) => (
-                  <Cell key={idx} fill={COLORS[idx]} />
+                {data.type_breakdown.map((_, idx) => (
+                  <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip content={<CustomTooltip />} />
             </PieChart>
           </ResponsiveContainer>
-          <div className="mt-2 flex justify-center gap-4 text-xs">
-            <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Allowed</span>
-            <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-amber-500" /> Challenged</span>
-            <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-red-500" /> Blocked</span>
+          {/* Legend */}
+          <div className="mt-2 flex flex-wrap justify-center gap-3">
+            {data.type_breakdown.map((t, i) => (
+              <span key={i} className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}
+                />
+                {t.type}
+              </span>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Live transaction feed */}
-      <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
-        <h2 className="mb-4 text-sm font-semibold text-gray-700">
-          Live Transaction Feed
-        </h2>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 text-xs font-medium uppercase tracking-wider text-gray-500">
-                  <th className="pb-3 pr-4">TXN ID</th>
-                  <th className="pb-3 pr-4">Sender</th>
-                  <th className="pb-3 pr-4">Receiver</th>
-                  <th className="pb-3 pr-4">Amount</th>
-                  <th className="pb-3 pr-4">Risk Score</th>
-                  <th className="pb-3">Decision</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((t) => (
-                  <tr
-                    key={t.id}
-                    className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors"
-                  >
-                    <td className="py-3 pr-4 font-mono text-xs text-gray-600">
-                      {t.txn_id}
-                    </td>
-                    <td className="py-3 pr-4 text-gray-600">{t.sender_upi}</td>
-                    <td className="py-3 pr-4 text-gray-600">{t.receiver_upi}</td>
-                    <td className="py-3 pr-4 font-medium text-gray-900">
-                      ₹{t.amount.toLocaleString('en-IN')}
-                    </td>
-                    <td className="py-3 pr-4">
-                      <RiskBar score={t.risk_score} />
-                    </td>
-                    <td className="py-3">
-                      <Badge decision={t.decision} />
-                    </td>
-                  </tr>
+      {/* Charts Row 2 */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* Volume by Type — Bar Chart */}
+        <div className="glass-card chart-container animate-fade-in-up delay-5">
+          <h3>Volume by Type</h3>
+          <p>Total transaction volume (₹) per category</p>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={data.type_breakdown}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.08)" />
+              <XAxis dataKey="type" tick={{ fontSize: 10, fill: '#64748b' }} stroke="transparent" />
+              <YAxis tick={{ fontSize: 10, fill: '#64748b' }} stroke="transparent" tickFormatter={(v) => formatINR(v)} />
+              <Tooltip content={<CustomTooltip />} />
+              <Bar dataKey="volume" name="Volume" radius={[6, 6, 0, 0]} fill="#6366f1">
+                {data.type_breakdown.map((_, idx) => (
+                  <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Fraud by Type */}
+        <div className="glass-card chart-container animate-fade-in-up delay-6">
+          <h3>Fraud Distribution by Type</h3>
+          <p>Number of fraudulent transactions per category</p>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={data.type_breakdown.filter(t => t.fraud_count > 0)} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.08)" />
+              <XAxis type="number" tick={{ fontSize: 10, fill: '#64748b' }} stroke="transparent" />
+              <YAxis dataKey="type" type="category" tick={{ fontSize: 10, fill: '#64748b' }} stroke="transparent" width={100} />
+              <Tooltip content={<CustomTooltip />} />
+              <Bar dataKey="fraud_count" name="Fraud Cases" radius={[0, 6, 6, 0]} fill="#f43f5e" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Quick Stats Table */}
+      <div className="glass-card p-5 animate-fade-in-up">
+        <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+          Transaction Type Summary
+        </h3>
+        <div className="overflow-x-auto">
+          <table className="analytics-table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Count</th>
+                <th>Volume</th>
+                <th>Fraud</th>
+                <th>Fraud Rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.type_breakdown.map((t, i) => (
+                <tr key={i}>
+                  <td>
+                    <span className="badge badge-type">{t.type}</span>
+                  </td>
+                  <td className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    {formatNumber(t.count)}
+                  </td>
+                  <td>{formatINR(t.volume)}</td>
+                  <td>
+                    <span className={t.fraud_count > 0 ? '' : ''} style={{ color: t.fraud_count > 0 ? '#fb7185' : 'var(--text-muted)' }}>
+                      {t.fraud_count}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="flex items-center gap-2">
+                      <div className="progress-bar w-16">
+                        <div
+                          className="progress-bar-fill"
+                          style={{
+                            width: `${Math.min((t.fraud_count / t.count) * 100 * 5, 100)}%`,
+                            background: t.fraud_count > 0 ? 'var(--accent-rose)' : 'var(--accent-emerald)',
+                          }}
+                        />
+                      </div>
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        {t.count > 0 ? ((t.fraud_count / t.count) * 100).toFixed(1) : '0'}%
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )

@@ -1,56 +1,46 @@
-# UPI Fraud Detection Using Machine Learning
+# UPI Transaction Analytics Dashboard
 
-A real-time fraud detection system for UPI (Unified Payments Interface) transactions. It uses an ensemble of 4 trained ML models running on the **PaySim dataset** (6.3 million transactions, 8,213 fraud cases) with a FastAPI backend and a React + Tailwind dashboard.
+A data analytics dashboard for exploring and analyzing UPI (Unified Payments Interface) transaction patterns. Built on the **PaySim dataset** (6.3 million synthetic financial transactions), it provides interactive visualizations, trend analysis, and fraud pattern insights — all through **pure statistical analysis**, no machine learning models.
 
 ## Features
 
-- **ML Ensemble Detection** — XGBoost, Random Forest, LightGBM, and Isolation Forest working together with weighted scoring
-- **Real PaySim Dataset** — Trained and evaluated on 6.3M synthetic financial transactions mirroring real-world mobile money patterns
-- **Risk Scoring** — Every transaction gets a 0–1 risk score with individual model breakdowns
-- **Decision Engine** — Automatic ALLOW / CHALLENGE / BLOCK decisions based on ensemble thresholds
-- **Risk Explainability** — Human-readable reasons for each flag (account drained, high-value, late-night, balance mismatch, etc.)
-- **Interactive Dashboard** — Login, transaction list, analytics charts, and model performance metrics
-- **REST API** — Predict fraud on new transactions, query history, view stats
+- **Interactive Overview** — KPI cards, daily trend charts, and transaction type distribution
+- **Transaction Explorer** — Filterable, sortable, paginated table with type/fraud/amount filters
+- **Advanced Analytics** — Activity heatmap, hourly patterns, amount distribution, city breakdown, radar charts, and top account leaderboards
+- **Fraud Pattern Analysis** — Statistical fraud patterns: type/hour fraud rates, amount comparisons, account drain detection, balance mismatch analysis
+- **Real PaySim Data** — Analyzed from 6.3M synthetic financial transactions mirroring real mobile money patterns
+- **Dark Premium UI** — Glassmorphism cards, gradient accents, micro-animations, and a fully responsive dark theme
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| **ML Models** | XGBoost, scikit-learn (Random Forest, Isolation Forest), LightGBM |
-| **Backend** | Python, FastAPI, SQLite, Pandas, NumPy, Joblib |
+| **Backend** | Python, FastAPI, SQLite, Pandas, NumPy |
 | **Frontend** | React 19, TypeScript, Tailwind CSS, Recharts, Vite |
-| **Auth** | Supabase Auth (local zero-setup) |
 | **Dataset** | PaySim (493 MB CSV — 6.3M transactions) |
 
 ## Project Structure
 
 ```
 ├── serving/
-│   └── main.py                 # FastAPI backend — API routes, ML prediction, DB seeding
+│   └── main.py                 # FastAPI backend — analytics API, data seeding
 ├── dashboard/
 │   ├── src/
 │   │   ├── pages/
 │   │   │   ├── Login.tsx       # Authentication page
-│   │   │   ├── Dashboard.tsx   # Overview with stats & charts
-│   │   │   ├── Transactions.tsx# Transaction list with risk scores
-│   │   │   ├── Analytics.tsx   # Fraud analytics & trends
-│   │   │   └── Models.tsx      # Model performance metrics
-│   │   ├── App.tsx             # Router & layout
+│   │   │   ├── Dashboard.tsx   # Overview with KPIs & charts
+│   │   │   ├── Transactions.tsx# Transaction explorer with filters
+│   │   │   ├── Analytics.tsx   # Advanced analytics & visualizations
+│   │   │   └── FraudPatterns.tsx# Statistical fraud pattern analysis
+│   │   ├── App.tsx             # Router & sidebar layout
 │   │   ├── main.tsx            # Entry point
-│   │   └── index.css           # Tailwind styles
+│   │   └── index.css           # Dark theme design system
 │   ├── package.json
 │   └── vite.config.ts
-├── models/
-│   ├── xgboost_model.pkl       # Trained XGBoost classifier
-│   ├── random_forest_model.pkl # Trained Random Forest classifier
-│   ├── lightgbm_model.pkl      # Trained LightGBM classifier
-│   ├── isolation_forest_model.pkl # Trained Isolation Forest (anomaly)
-│   └── scaler.pkl              # StandardScaler for feature normalization
 ├── data/
 │   └── paysim.csv              # PaySim dataset (493 MB, 6.3M rows)
 ├── fraud_data.db               # SQLite database (auto-created on startup)
 ├── requirements.txt            # Python dependencies
-├── .env                        # Environment variables
 └── LICENSE
 ```
 
@@ -83,9 +73,9 @@ python main.py
 ```
 
 The backend starts at **http://localhost:8000**. On first run, it:
-1. Loads all 4 ML models from `models/`
-2. Creates `fraud_data.db` with the correct schema
-3. Seeds 500 real PaySim transactions (100 fraud + 400 legit) through the ML ensemble
+1. Loads the PaySim CSV dataset
+2. Creates `fraud_data.db` with the analytics schema
+3. Seeds 2,000 real PaySim transactions (200 fraud + 1,800 legit)
 
 ### 4. Start the Frontend
 
@@ -96,59 +86,41 @@ npm run dev
 
 The dashboard opens at **http://localhost:5173**
 
+**Login:** `admin@upifraud.com` / `admin123`
+
 ## API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/` | Health check — lists loaded models |
-| `GET` | `/transactions` | Get transactions (supports `?limit=`, `?decision=`, `?fraud_only=`) |
-| `POST` | `/predict` | Predict fraud for a new UPI transaction |
-| `GET` | `/stats` | Fraud detection statistics & model performance |
-| `DELETE` | `/transactions/reset` | Reset DB and re-seed from PaySim |
+| `GET` | `/` | Health check |
+| `GET` | `/overview` | Dashboard KPIs — totals, fraud rate, type breakdown, daily trend |
+| `GET` | `/transactions` | Filterable transaction list (type, fraud, amount, sort, pagination) |
+| `GET` | `/analytics/hourly` | Hourly transaction distribution |
+| `GET` | `/analytics/type-distribution` | Type breakdown with fraud rates |
+| `GET` | `/analytics/amount-distribution` | Amount range histogram |
+| `GET` | `/analytics/city-distribution` | Geographic transaction distribution |
+| `GET` | `/analytics/top-accounts` | Top senders & receivers by volume |
+| `GET` | `/analytics/fraud-patterns` | Statistical fraud analysis |
+| `GET` | `/analytics/daily-trend` | Daily time-series data |
+| `GET` | `/analytics/heatmap` | Hour × Day-of-week activity heatmap |
 
-### Example — Predict Fraud
+## Dashboard Pages
 
-```bash
-curl -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sender_upi": "rahul.sharma@ybl",
-    "receiver_upi": "unknown.user@paytm",
-    "amount": 500000,
-    "txn_type": "TRANSFER"
-  }'
-```
+### 1. Overview
+KPI cards (total transactions, volume, fraud count, unique accounts), daily trend area chart, transaction type pie chart, volume bar chart, and fraud distribution.
 
-**Response:**
-```json
-{
-  "txn_id": "UPI3A8F2B1C9D0E",
-  "risk_score": 0.8234,
-  "decision": "BLOCK",
-  "confidence": 0.82,
-  "individual_scores": {
-    "xgboost": 0.91,
-    "random_forest": 0.78,
-    "lightgbm": 0.85,
-    "isolation_forest": 0.72
-  },
-  "risk_reasons": [
-    "High-value transaction",
-    "Risky type: TRANSFER"
-  ]
-}
-```
+### 2. Transaction Explorer
+Full table with type/fraud filters, column sorting, pagination, city info, and status badges.
 
-## How It Works
+### 3. Advanced Analytics
+GitHub-style activity heatmap, hourly pattern area chart, amount distribution histogram, city horizontal bar chart, radar chart for type comparison, and top account leaderboards.
 
-1. **Feature Extraction** — Each transaction is converted into 20 engineered features: amount, log-amount, type encoding, balance diffs, drain detection, time-of-day, balance error signals, etc.
-2. **Ensemble Prediction** — All 4 models score the transaction independently. Scores are combined using weighted averaging (XGBoost 35%, RF 25%, LightGBM 25%, IF 15%).
-3. **Decision** — `risk_score > 0.7` → BLOCK, `> 0.35` → CHALLENGE, otherwise → ALLOW.
-4. **Explainability** — Rule-based reasons are generated alongside the ML score for transparency.
+### 4. Fraud Patterns
+Fraud rate by type, fraud rate by hour, fraud vs legit amount comparison, fraud distribution pie, account drain statistics, balance mismatch detection, risk level badges, and key findings summary.
 
 ## Dataset
 
-This project uses the **PaySim** dataset — a synthetic dataset generated using real mobile money transaction logs from a month of financial activity in an African country.
+This project uses the **PaySim** dataset — a synthetic dataset generated from real mobile money transaction logs.
 
 - **6,362,620** total transactions
 - **8,213** fraud cases (0.13% fraud rate)

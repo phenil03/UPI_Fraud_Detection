@@ -1,6 +1,6 @@
 {
-  "name": "upi-fraud-dashboard",
-  "version": "2.0.0",
+  "name": "upi-transaction-analytics",
+  "version": "3.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,7 +12,6 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^6.28.0",
-    "@supabase/supabase-js": "^2.47.10",
     "recharts": "^2.15.0"
   },
   "devDependencies": {
