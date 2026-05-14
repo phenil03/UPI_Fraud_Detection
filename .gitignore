@@ -47,4 +47,4 @@ Thumbs.db
 # data/
 
 # Docker
-.dockerignore
+.dockerignoredata/paysim.csv
