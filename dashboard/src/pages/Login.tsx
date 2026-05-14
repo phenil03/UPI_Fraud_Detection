@@ -135,12 +135,7 @@ export default function Login() {
           </button>
         </form>
 
-        {/* Demo hint */}
-        <div className="mt-6 rounded-xl p-3 text-center" style={{ background: 'rgba(99, 102, 241, 0.06)', border: '1px solid var(--border)' }}>
-          <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-            Demo: <span style={{ color: 'var(--text-secondary)' }}>admin@upifraud.com</span> / <span style={{ color: 'var(--text-secondary)' }}>admin123</span>
-          </p>
-        </div>
+
       </div>
     </div>
   )
